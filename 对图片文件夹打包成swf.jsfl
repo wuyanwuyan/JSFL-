@@ -2,92 +2,62 @@
 
 var folderName = folderPath.substring(folderPath.lastIndexOf("/") + 1);
 
-var outFlaPath = folderPath +　"/" +　folderName　+ ".fla";
-fl.trace(outFlaPath);
+var outFlaPath = folderPath.substring(0,folderPath.lastIndexOf("/")) +　"/" +　folderName　+ ".fla";
+
 FLfile.write(outFlaPath,"");
 
 var flaDom = fl.openDocument(outFlaPath);
 
+importImages(folderPath,flaDom,"",folderName + "_");
 
-importImages(folderName,flaDom,folderPath);
+flaDom.save();
+flaDom.exportSWF(folderPath.substring(0,folderPath.lastIndexOf("/")) +　"/" +　folderName　+ ".swf");
+flaDom.close(false);
 
-//flaDom.close(false);
-
-//resFoldName 资源文件夹
-	//dom 打开的fl.domcument对象
-	//imageFolder 资源文件夹下的图片文件夹
-	//addAsLink 是否加入as链接
-	//foldName 导入图片时放入库中的文件夹
-	//useLossLess 使用无损
-function importImages(resFoldName, dom, imageFolder, addAsLink, foldName, useLossLess)
+function importImages(folderPath, dom, folderName,preHex, useLossLess)
 {
-	var images = FLfile.listFolder(imageFolder);
-	if(foldName == "")
+	if(folderName)
 	{
-		dom.library.newFolder("use")
+		dom.library.newFolder(folderName);
 	}
-	//文件夹的URI之后加上"/"
-	if(imageFolder[imageFolder.length - 1] != "/")
+	
+	var fileList = FLfile.listFolder(folderPath, "files");
+	for (var i = 0 , len = fileList.length ; i < len ; i++) 
 	{
-		imageFolder = imageFolder + "/"
-	}
-	var imageFile
-	var newFoldName
-	for (var i = 0; i < images.length; i++)
-	{
-		imageFile = imageFolder + images[i];
-		fl.trace(imageFile);
-		if(FLfile.exists(imageFile))
+		var image = fileList[i];
+		if(image.indexOf(".png") != -1 || image.indexOf(".jpg") != -1 || image.indexOf(".gif") != -1)
 		{
-			var imageFileAttr = FLfile.getAttributes(imageFile)
-			if(imageFileAttr.indexOf("D") != -1)
-			{
-				//根据文件夹的文件名，在库中新建对应的文件夹
-				newFoldName = (foldName == "" ? "use" : foldName) + "/" + images[i];
-				dom.library.newFolder(newFoldName)
-				importImages(resFoldName, dom, imageFile, false, newFoldName, useLossLess)
-			}
-			else
-			{
-				dom.importFile(imageFile, true);
-				dom.library.moveToFolder(foldName == "" ? "use" : foldName, images[i], true)
-			}
+			dom.importFile(folderPath + "/" + image, true);
+			dom.library.moveToFolder(folderName, image, true);
+		
+			dom.library.selectItem((folderName ? folderName + "/" : folderName ) + image);
+		
+			var item = dom.library.getSelectedItems()[0];
+		
+			generateAsLink(item,preHex + image,useLossLess);
 		}
 	}
-	//全部导入文件夹中的资源，添加as链接，设置压缩，发布swf
-	if(foldName != "")
+	
+	var folders = FLfile.listFolder(folderPath,"directories");
+	for(i = 0 , len = folders.length ; i < len ; i++ )
 	{
-		return;
-	}
-	var items = dom.library.items;
-	var item;
-	var linkUrl;
-	var splitName;
-	for (var j = 0; j < items.length; j++)
-	{
-		item = items[j];
-		if(item.itemType == "bitmap" && item.name.indexOf("use") == 0)
+		var subFolderName = folders[i];
+		if(subFolderName.indexOf(".svn") == -1)
 		{
-			//生成as链接
-			splitName = item.name.split(".");
-			linkUrl = splitName[splitName.length - 1] + "." + resFoldName;
-			splitName = splitName[0].split("/");
-			for (var k = 1; k < splitName.length; k++)
-			{
-				linkUrl = linkUrl + "." + splitName[k];
-			}
-			
-			if(useLossLess)
-			{
-				item.compressionType = "lossless"
-			}
-			//fl.trace(items[j].name + items[j].itemType)
-			item.linkageExportForAS = true;
-			item.linkageExportInFirstFrame = true;
-			item.linkageClassName = linkUrl;
+			var newPreHex = preHex + subFolderName + "_";
+			importImages(folderPath + "/" + subFolderName ,dom , (folderName ? folderName + "/" : folderName ) + subFolderName ,newPreHex,useLossLess );
 		}
+		
 	}
-	dom.save();
-	dom.exportSWF(swfFolder + resFoldName + ".swf");
-	fl.closeDocument(dom);
+}
+
+function generateAsLink(item , linkClassName , useLossLess)
+{
+	item.linkageExportForAS = true;
+	item.linkageExportInFirstFrame = true;
+	item.linkageClassName = linkClassName;
+	if(useLossLess)
+	{
+		item.compressionType = "lossless";
+	}
 }
